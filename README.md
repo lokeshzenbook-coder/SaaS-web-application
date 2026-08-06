@@ -32,6 +32,27 @@ npm run dev   # start with auto-reload
 npm test      # run the API test suite
 ```
 
+## Running with Docker
+
+Build and run with Docker Compose (the SQLite database is kept in a named volume so it survives restarts):
+
+```bash
+JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(48).toString('hex'))") \
+  docker compose up -d --build
+```
+
+Then open http://localhost:3000. Stop with `docker compose down`; add `-v` to also delete the database volume.
+
+Or build and run manually:
+
+```bash
+docker build -t saas-web-application .
+docker run -d --name saas-web -p 3000:3000 \
+  -e JWT_SECRET=some-long-random-secret \
+  -v saas-data:/app/data \
+  saas-web-application
+```
+
 ## API
 
 Base URL: `http://localhost:3000`
