@@ -1,4 +1,4 @@
-import { test, before, after, beforeEach } from "node:test";
+import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -26,7 +26,7 @@ after(() => {
   rmSync(tmp, { recursive: true, force: true });
 });
 
-async function req(method, url, { body, headers, cookies } = {}) {
+async function req(method, url, { body, headers } = {}) {
   const res = await fetch(base + url, {
     method,
     headers: {
@@ -45,7 +45,12 @@ function cookieOf(setCookie) {
 
 async function registerUser(overrides = {}) {
   const { res, data, setCookie } = await req("POST", "/api/auth/register", {
-    body: { name: "Tester", email: `u${Date.now()}${Math.random().toString(36).slice(2, 6)}@example.com`, password: "super-secret-123", ...overrides },
+    body: {
+      name: "Tester",
+      email: `u${Date.now()}${Math.random().toString(36).slice(2, 6)}@example.com`,
+      password: "super-secret-123",
+      ...overrides,
+    },
   });
   return { res, data, setCookie, cookie: cookieOf(setCookie) };
 }
@@ -99,7 +104,6 @@ test("GET /api/auth/me returns the user when authenticated", async () => {
     body: { email: user.email, password: user.password },
   });
   const { res, data } = await req("GET", "/api/auth/me", {
-    cookies: cookieOf(login.setCookie),
     headers: { Cookie: cookieOf(login.setCookie) },
   });
   assert.equal(res.status, 200);
@@ -120,7 +124,10 @@ test("GET /api/plans lists all plans for an authenticated user", async () => {
   });
   assert.equal(res.status, 200);
   assert.equal(data.plans.length, 3);
-  assert.deepEqual(data.plans.map((p) => p.id), ["free", "pro", "enterprise"]);
+  assert.deepEqual(
+    data.plans.map((p) => p.id),
+    ["free", "pro", "enterprise"],
+  );
 });
 
 test("dashboard stats reflect a fresh free account", async () => {
@@ -181,10 +188,16 @@ test("quota exhaustion returns 429 with a friendly message", async () => {
   db.prepare("UPDATE users SET plan_id = 'tiny' WHERE id = ?").run(acct.data.user.id);
 
   for (let i = 0; i < 2; i++) {
-    const ok = await req("POST", "/api/v1/data", { headers: { "X-API-Key": acct.data.user.apiKey }, body: {} });
+    const ok = await req("POST", "/api/v1/data", {
+      headers: { "X-API-Key": acct.data.user.apiKey },
+      body: {},
+    });
     assert.equal(ok.res.status, 200);
   }
-  const third = await req("POST", "/api/v1/data", { headers: { "X-API-Key": acct.data.user.apiKey }, body: {} });
+  const third = await req("POST", "/api/v1/data", {
+    headers: { "X-API-Key": acct.data.user.apiKey },
+    body: {},
+  });
   assert.equal(third.res.status, 429);
   assert.equal(third.data.error.code, "quota_exceeded");
 

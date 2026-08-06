@@ -33,7 +33,9 @@ router.post(
     const apiKey = generateApiKey();
 
     const result = db
-      .prepare("INSERT INTO users (email, name, password_hash, plan_id, api_key) VALUES (?, ?, ?, 'free', ?)")
+      .prepare(
+        "INSERT INTO users (email, name, password_hash, plan_id, api_key) VALUES (?, ?, ?, 'free', ?)",
+      )
       .run(mail, name, passwordHash, apiKey);
 
     const user = db.prepare("SELECT * FROM users WHERE id = ?").get(result.lastInsertRowid);
@@ -71,9 +73,7 @@ router.get(
   "/me",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const user = db
-      .prepare("SELECT * FROM users WHERE id = ?")
-      .get(req.user.id);
+    const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.user.id);
     res.json({ user: publicUser(user) });
   }),
 );

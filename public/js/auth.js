@@ -10,3 +10,5 @@ async function submitAuth(url, body) {
   }
   window.location.href = "/dashboard";
 }
+
+window.submitAuth = submitAuth;

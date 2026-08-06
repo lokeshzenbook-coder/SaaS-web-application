@@ -1,5 +1,8 @@
 # SaaS Web Application
 
+[![CI](https://github.com/lokeshzenbook-coder/SaaS-web-application/actions/workflows/ci.yml/badge.svg)](https://github.com/lokeshzenbook-coder/SaaS-web-application/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/lokeshzenbook-coder/SaaS-web-application/actions/workflows/codeql.yml/badge.svg)](https://github.com/lokeshzenbook-coder/SaaS-web-application/actions/workflows/codeql.yml)
+
 A full-stack SaaS starter: authentication, plan-based subscriptions, usage quotas, a rate-limited product API, and a dashboard — all in one small, dependency-light codebase.
 
 Built with **Node.js + Express + SQLite** (`node:sqlite`, no native modules). The frontend is plain HTML/CSS/JS served by Express, so there is no build step.
@@ -14,10 +17,11 @@ Built with **Node.js + Express + SQLite** (`node:sqlite`, no native modules). Th
 - **Security** — security headers, input validation, no plaintext passwords, JWT secrets from env
 - **Dashboard** — usage stats, API key, plan switching, and a live API playground
 - **Tests** — end-to-end API suite using Node's built-in test runner (17 tests)
+- **CI/CD** — ESLint/Prettier, tests, dependency & container scanning, GHCR image publishing, and CodeQL (see below)
 
 ## Getting started
 
-Requires **Node.js ≥ 22.5** (for the built-in `node:sqlite` module).
+Requires **Node.js ≥ 24** (for the built-in `node:sqlite` module).
 
 ```bash
 npm install
@@ -28,9 +32,24 @@ npm start
 Open http://localhost:3000, create an account, and you're on the Free plan.
 
 ```bash
-npm run dev   # start with auto-reload
-npm test      # run the API test suite
+npm run dev      # start with auto-reload
+npm test         # run the API test suite
+npm run lint     # ESLint
+npm run format   # Prettier (format)
+npm run format:check   # Prettier (verify)
 ```
+
+## CI/CD
+
+All workflows live in `.github/workflows/` and Dependabot updates dependencies automatically.
+
+| Workflow     | Trigger                         | What it does                                                                                                                                                                 |
+| ------------ | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci.yml`     | push to `main`, pull requests   | `npm ci`, ESLint + Prettier checks, tests, `npm audit`                                                                                                                       |
+| `codeql.yml` | push, PRs, weekly               | GitHub CodeQL JavaScript security scanning                                                                                                                                   |
+| `deploy.yml` | push to `main` (app paths only) | Builds the Docker image, scans it with **Trivy** (fails on HIGH/CRITICAL), publishes to **GHCR** (via OIDC), attaches **SLSA build provenance**, then an optional deploy job |
+
+The CD workflow publishes to `ghcr.io/lokeshzenbook-coder/saas-web-application` with `:latest`, `:main`, and `:<sha>` tags. To enable the actual deployment step, set the `DEPLOY_TARGET` secret and uncomment the example SSH deploy in `deploy.yml`.
 
 ## Running with Docker
 
@@ -57,19 +76,19 @@ docker run -d --name saas-web -p 3000:3000 \
 
 Base URL: `http://localhost:3000`
 
-| Method | Endpoint            | Auth           | Description                          |
-| ------ | ------------------- | -------------- | ------------------------------------ |
-| GET    | `/healthz`          | –              | Health check                         |
-| POST   | `/api/auth/register`| –              | Create account (sets session cookie) |
-| POST   | `/api/auth/login`   | –              | Log in (sets session cookie)         |
-| POST   | `/api/auth/logout`  | cookie         | Clear session                        |
-| GET    | `/api/auth/me`      | cookie         | Current user + API key               |
-| GET    | `/api/plans`        | cookie         | List plans                           |
-| POST   | `/api/billing/subscribe` | cookie     | Subscribe / change plan              |
-| DELETE | `/api/billing/subscribe` | cookie     | Cancel subscription (back to Free)   |
-| GET    | `/api/dashboard/stats` | cookie       | Usage, plan, subscription status     |
-| GET    | `/api/v1/echo`      | `X-API-Key`    | Product API echo                     |
-| POST   | `/api/v1/data`      | `X-API-Key`    | Product API call (consumes quota)    |
+| Method | Endpoint                 | Auth        | Description                          |
+| ------ | ------------------------ | ----------- | ------------------------------------ |
+| GET    | `/healthz`               | –           | Health check                         |
+| POST   | `/api/auth/register`     | –           | Create account (sets session cookie) |
+| POST   | `/api/auth/login`        | –           | Log in (sets session cookie)         |
+| POST   | `/api/auth/logout`       | cookie      | Clear session                        |
+| GET    | `/api/auth/me`           | cookie      | Current user + API key               |
+| GET    | `/api/plans`             | cookie      | List plans                           |
+| POST   | `/api/billing/subscribe` | cookie      | Subscribe / change plan              |
+| DELETE | `/api/billing/subscribe` | cookie      | Cancel subscription (back to Free)   |
+| GET    | `/api/dashboard/stats`   | cookie      | Usage, plan, subscription status     |
+| GET    | `/api/v1/echo`           | `X-API-Key` | Product API echo                     |
+| POST   | `/api/v1/data`           | `X-API-Key` | Product API call (consumes quota)    |
 
 Example product API call:
 
@@ -85,7 +104,12 @@ curl -X POST http://localhost:3000/api/v1/data \
 All errors return a consistent shape:
 
 ```json
-{ "error": { "code": "quota_exceeded", "message": "Monthly quota exceeded (1000/1000). Upgrade your plan." } }
+{
+  "error": {
+    "code": "quota_exceeded",
+    "message": "Monthly quota exceeded (1000/1000). Upgrade your plan."
+  }
+}
 ```
 
 Common codes: `validation_error`, `email_taken`, `invalid_credentials`, `invalid_token`, `invalid_api_key`, `quota_exceeded`, `rate_limited`, `not_found`.
@@ -125,16 +149,16 @@ Common codes: `validation_error`, `email_taken`, `invalid_credentials`, `invalid
 
 All settings are read from environment variables (see `.env.example`):
 
-| Variable           | Default               | Description                     |
-| ------------------ | --------------------- | ------------------------------- |
-| `PORT`             | `3000`                | HTTP port                       |
-| `HOST`             | `0.0.0.0`             | Bind address                    |
-| `JWT_SECRET`       | `dev-only…`           | **Change in production**        |
-| `JWT_EXPIRES_IN`   | `7d`                  | Session lifetime                |
-| `BCRYPT_ROUNDS`    | `10`                  | Password hash cost              |
-| `RATE_LIMIT_MAX`   | `100`                 | Global limit per window/IP      |
-| `RATE_WINDOW_MS`   | `60000`               | Global rate-limit window        |
-| `DB_FILE`          | `data/saas.db`        | SQLite database path            |
+| Variable         | Default        | Description                |
+| ---------------- | -------------- | -------------------------- |
+| `PORT`           | `3000`         | HTTP port                  |
+| `HOST`           | `0.0.0.0`      | Bind address               |
+| `JWT_SECRET`     | `dev-only…`    | **Change in production**   |
+| `JWT_EXPIRES_IN` | `7d`           | Session lifetime           |
+| `BCRYPT_ROUNDS`  | `10`           | Password hash cost         |
+| `RATE_LIMIT_MAX` | `100`          | Global limit per window/IP |
+| `RATE_WINDOW_MS` | `60000`        | Global rate-limit window   |
+| `DB_FILE`        | `data/saas.db` | SQLite database path       |
 
 ## Production notes
 
@@ -142,4 +166,5 @@ All settings are read from environment variables (see `.env.example`):
 - Connect a real payment provider (Stripe, Paddle, …) in place of `mockCharge`.
 - Add email verification / password reset as needed.
 - The in-memory rate limiter is per-process; use a shared store (Redis) when scaling horizontally.
->>>>>>> 0f50472 (Scaffold SaaS starter: auth, subscriptions, quotas, REST API, dashboard)
+
+> > > > > > > 0f50472 (Scaffold SaaS starter: auth, subscriptions, quotas, REST API, dashboard)

@@ -14,9 +14,7 @@ router.get(
     const month = currentMonth();
     const used = getUsageMonth(user.id, month);
 
-    const subscription = db
-      .prepare("SELECT * FROM subscriptions WHERE user_id = ?")
-      .get(user.id);
+    const subscription = db.prepare("SELECT * FROM subscriptions WHERE user_id = ?").get(user.id);
 
     res.json({
       user: {

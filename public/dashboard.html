@@ -1,75 +1,82 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Dashboard — Acme SaaS</title>
-  <link rel="stylesheet" href="/css/style.css" />
-</head>
-<body>
-  <div class="dashboard">
-    <aside class="sidebar">
-      <a class="brand" href="/">Acme<span>SaaS</span></a>
-      <p class="muted" style="margin-top:8px;">Menu</p>
-      <a class="active" href="#overview">Overview</a>
-      <a href="#api">API Key</a>
-      <a href="#billing">Plans</a>
-      <a href="#playground">Playground</a>
-      <p class="muted">Account</p>
-      <a id="nav-email" class="small muted" href="#overview"></a>
-      <a href="#" id="logout">Log out</a>
-    </aside>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dashboard — Acme SaaS</title>
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <div class="dashboard">
+      <aside class="sidebar">
+        <a class="brand" href="/">Acme<span>SaaS</span></a>
+        <p class="muted" style="margin-top: 8px">Menu</p>
+        <a class="active" href="#overview">Overview</a>
+        <a href="#api">API Key</a>
+        <a href="#billing">Plans</a>
+        <a href="#playground">Playground</a>
+        <p class="muted">Account</p>
+        <a id="nav-email" class="small muted" href="#overview"></a>
+        <a href="#" id="logout">Log out</a>
+      </aside>
 
-    <main>
-      <section class="panel" id="overview">
-        <h2>Overview</h2>
-        <div class="stat-grid" id="stat-grid"></div>
-      </section>
+      <main>
+        <section class="panel" id="overview">
+          <h2>Overview</h2>
+          <div class="stat-grid" id="stat-grid"></div>
+        </section>
 
-      <section class="panel" id="usage">
-        <h2>Monthly usage</h2>
-        <div class="row">
-          <span class="muted small" id="usage-label"></span>
-          <span class="small" id="usage-percent"></span>
-        </div>
-        <div class="bar"><div id="usage-bar" style="width:0%"></div></div>
-      </section>
-
-      <section class="panel" id="api">
-        <h2>Your API key</h2>
-        <p class="muted small">Send it in the <code>X-API-Key</code> header to call the product API.</p>
-        <div class="row" style="margin-top:12px;">
-          <code class="api-key" id="api-key"></code>
-        </div>
-        <p class="muted small" style="margin-top:12px;">
-          <code>GET /api/v1/echo</code> · <code>POST /api/v1/data</code> · plan rate limit <span id="rate-limit"></span> req/min
-        </p>
-      </section>
-
-      <section class="panel" id="billing">
-        <h2>Plans</h2>
-        <div class="grid" id="plan-grid"></div>
-        <div class="error" id="billing-error" style="margin-top:16px;"></div>
-        <div class="success" id="billing-success" style="margin-top:16px;"></div>
-      </section>
-
-      <section class="panel" id="playground">
-        <h2>API playground</h2>
-        <div class="row">
-          <div style="flex:1;">
-            <label for="pg-value">Value to send (optional)</label>
-            <input type="text" id="pg-value" placeholder='e.g. {"note":"hello world"}' />
+        <section class="panel" id="usage">
+          <h2>Monthly usage</h2>
+          <div class="row">
+            <span class="muted small" id="usage-label"></span>
+            <span class="small" id="usage-percent"></span>
           </div>
-          <div style="align-self:end;">
-            <button class="btn primary" id="pg-call">POST /api/v1/data</button>
-          </div>
-        </div>
-        <pre class="muted small" id="pg-output" style="margin-top:14px; white-space:pre-wrap;"></pre>
-      </section>
-    </main>
-  </div>
+          <div class="bar"><div id="usage-bar" style="width: 0%"></div></div>
+        </section>
 
-  <div class="toast" id="toast"></div>
-  <script src="/js/dashboard.js"></script>
-</body>
+        <section class="panel" id="api">
+          <h2>Your API key</h2>
+          <p class="muted small">
+            Send it in the <code>X-API-Key</code> header to call the product API.
+          </p>
+          <div class="row" style="margin-top: 12px">
+            <code class="api-key" id="api-key"></code>
+          </div>
+          <p class="muted small" style="margin-top: 12px">
+            <code>GET /api/v1/echo</code> · <code>POST /api/v1/data</code> · plan rate limit
+            <span id="rate-limit"></span> req/min
+          </p>
+        </section>
+
+        <section class="panel" id="billing">
+          <h2>Plans</h2>
+          <div class="grid" id="plan-grid"></div>
+          <div class="error" id="billing-error" style="margin-top: 16px"></div>
+          <div class="success" id="billing-success" style="margin-top: 16px"></div>
+        </section>
+
+        <section class="panel" id="playground">
+          <h2>API playground</h2>
+          <div class="row">
+            <div style="flex: 1">
+              <label for="pg-value">Value to send (optional)</label>
+              <input type="text" id="pg-value" placeholder='e.g. {"note":"hello world"}' />
+            </div>
+            <div style="align-self: end">
+              <button class="btn primary" id="pg-call">POST /api/v1/data</button>
+            </div>
+          </div>
+          <pre
+            class="muted small"
+            id="pg-output"
+            style="margin-top: 14px; white-space: pre-wrap"
+          ></pre>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <script src="/js/dashboard.js"></script>
+  </body>
 </html>

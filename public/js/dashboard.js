@@ -51,7 +51,8 @@ async function loadStats() {
     stat("Subscription", sub ? sub.status : "none"),
   ].join("");
 
-  $("usage-label").textContent = `${u.used.toLocaleString()} of ${u.quota.toLocaleString()} calls used in ${u.month}`;
+  $("usage-label").textContent =
+    `${u.used.toLocaleString()} of ${u.quota.toLocaleString()} calls used in ${u.month}`;
   $("usage-percent").textContent = `${u.percent}%`;
   $("usage-bar").style.width = `${Math.min(100, u.percent)}%`;
   $("rate-limit").textContent = String(plan.apiRateMax);
@@ -102,7 +103,8 @@ async function subscribe(planId) {
       method: "POST",
       body: JSON.stringify({ plan_id: planId, payment_method: "card" }),
     });
-    $("billing-success").textContent = `Subscribed to ${data.subscription.planId} (mock charge ${data.charge.id} succeeded). Refreshing…`;
+    $("billing-success").textContent =
+      `Subscribed to ${data.subscription.planId} (mock charge ${data.charge.id} succeeded). Refreshing…`;
     $("billing-success").style.display = "block";
     setTimeout(loadStats, 1200);
   } catch (err) {

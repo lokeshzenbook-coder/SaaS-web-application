@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, getPlan, getUsageMonth, incrementUsage, currentMonth } from "../db.js";
+import { getPlan, getUsageMonth, incrementUsage, currentMonth } from "../db.js";
 import { requireApiKey } from "../middleware/auth.js";
 import { asyncHandler, ApiError } from "../middleware/errors.js";
 import { rateLimit } from "../middleware/rateLimit.js";

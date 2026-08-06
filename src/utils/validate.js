@@ -24,7 +24,11 @@ export function stringOf(body, field, { min = 1, max = 255 } = {}) {
     throw new ApiError(400, `"${field}" must be a string`, "validation_error");
   }
   if (value.length < min || value.length > max) {
-    throw new ApiError(400, `"${field}" must be between ${min} and ${max} characters`, "validation_error");
+    throw new ApiError(
+      400,
+      `"${field}" must be between ${min} and ${max} characters`,
+      "validation_error",
+    );
   }
   return value;
 }

@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
-import { config, DATA_DIR } from "./config.js";
+import { config } from "./config.js";
 
 mkdirSync(path.dirname(config.dbFile), { recursive: true });
 
@@ -56,8 +56,22 @@ if (!hasPlans) {
     "INSERT INTO plans (id, name, price_cents, monthly_quota, api_rate_max, features) VALUES (?, ?, ?, ?, ?, ?)",
   );
   insert.run("free", "Free", 0, 1000, 10, JSON.stringify(["1k API calls/mo", "Community support"]));
-  insert.run("pro", "Pro", 2900, 100000, 100, JSON.stringify(["100k API calls/mo", "Email support", "Rate limit boost"]));
-  insert.run("enterprise", "Enterprise", 14900, 10000000, 1000, JSON.stringify(["Unlimited calls", "SSO", "Priority support"]));
+  insert.run(
+    "pro",
+    "Pro",
+    2900,
+    100000,
+    100,
+    JSON.stringify(["100k API calls/mo", "Email support", "Rate limit boost"]),
+  );
+  insert.run(
+    "enterprise",
+    "Enterprise",
+    14900,
+    10000000,
+    1000,
+    JSON.stringify(["Unlimited calls", "SSO", "Priority support"]),
+  );
 }
 
 export function getPlan(id) {

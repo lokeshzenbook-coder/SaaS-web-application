@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
-import { asyncHandler, ApiError } from "../middleware/errors.js";
+import { asyncHandler } from "../middleware/errors.js";
 
 const router = Router();
 
