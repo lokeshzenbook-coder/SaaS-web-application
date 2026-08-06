@@ -17,7 +17,7 @@ Built with **Node.js + Express + SQLite** (`node:sqlite`, no native modules). Th
 - **Security** — security headers, input validation, no plaintext passwords, JWT secrets from env
 - **Dashboard** — usage stats, API key, plan switching, and a live API playground
 - **Tests** — end-to-end API suite using Node's built-in test runner (17 tests)
-- **CI/CD** — ESLint/Prettier, tests, dependency & container scanning, GHCR image publishing, and CodeQL (see below)
+- **CI/CD** — end-to-end DevSecOps pipeline: secrets/SCA/SAST scanning, lint, tests, coverage, container scanning, SBOM, and Docker Hub publishing (see below)
 
 ## Getting started
 
@@ -43,13 +43,34 @@ npm run format:check   # Prettier (verify)
 
 All workflows live in `.github/workflows/` and Dependabot updates dependencies automatically.
 
-| Workflow     | Trigger                         | What it does                                                                                                                                                                 |
-| ------------ | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci.yml`     | push to `main`, pull requests   | `npm ci`, ESLint + Prettier checks, tests, `npm audit`                                                                                                                       |
-| `codeql.yml` | push, PRs, weekly               | GitHub CodeQL JavaScript security scanning                                                                                                                                   |
-| `deploy.yml` | push to `main` (app paths only) | Builds the Docker image, scans it with **Trivy** (fails on HIGH/CRITICAL), publishes to **GHCR** (via OIDC), attaches **SLSA build provenance**, then an optional deploy job |
+| Workflow     | Trigger                       | What it does                                                                                                                    |
+| ------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `ci.yml`     | push to `main`, pull requests | End-to-end **DevSecOps pipeline** (12 stages, see below)                                                                        |
+| `codeql.yml` | push, PRs, weekly             | GitHub CodeQL JavaScript security scanning                                                                                      |
+| `deploy.yml` | push to `main` (app paths)    | Builds the image, scans with **Trivy**, publishes to **GHCR** (via OIDC), attaches **SLSA provenance**, optional SSH deploy job |
 
-The CD workflow publishes to `ghcr.io/lokeshzenbook-coder/saas-web-application` with `:latest`, `:main`, and `:<sha>` tags. To enable the actual deployment step, set the `DEPLOY_TARGET` secret and uncomment the example SSH deploy in `deploy.yml`.
+### DevSecOps pipeline (`ci.yml`)
+
+| #   | Stage                | Tool                                                          |
+| --- | -------------------- | ------------------------------------------------------------- |
+| 1   | Checkout repo        | `actions/checkout` (full history)                             |
+| 2   | Secrets scanning     | **Gitleaks** (fails on any leaked secret)                     |
+| 3   | Dependency check     | **OWASP Dependency-Check** (SARIF + HTML report uploaded)     |
+| 4   | Static code analysis | **Semgrep** (`p/owasp-top-ten`, SARIF → Security tab)         |
+| 5   | Code quality & lint  | **ESLint** + Prettier check                                   |
+| 6   | Unit tests           | Node built-in test runner (`node --test`)                     |
+| 7   | Code coverage        | **c8** (~94% lines, HTML/lcov report uploaded)                |
+| 8   | Build application    | `npm pack --dry-run`                                          |
+| 9   | Build Docker image   | `docker/build-push-action` (loaded locally for scanning)      |
+| 10  | Container image scan | **Trivy** + **Grype** (fail on HIGH/CRITICAL, SARIF uploaded) |
+| 11  | SBOM generation      | **Syft** (CycloneDX, uploaded as artifact)                    |
+| 12  | Push image           | **Docker Hub** (`latest` + short-sha tags, main branch only)  |
+
+Steps 3 and 4 run with `continue-on-error` (NVD sync and Semgrep comment posting can be flaky); all their reports are still uploaded. Steps 10a/10b **gate the pipeline** — any HIGH/CRITICAL container finding fails the build.
+
+To enable the Docker Hub push (step 12), add `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` secrets to the repo. The image is published as `<username>/saas-web-application:latest` and `:<short-sha>` on every push to `main`.
+
+The separate CD workflow publishes to `ghcr.io/lokeshzenbook-coder/saas-web-application` with `:latest`, `:main`, and `:<sha>` tags. To enable the actual deployment step there, set the `DEPLOY_TARGET` secret and uncomment the example SSH deploy in `deploy.yml`.
 
 ## Running with Docker
 

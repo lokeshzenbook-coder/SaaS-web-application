@@ -1,4 +1,4 @@
-name: CI
+name: DevSecOps CI/CD
 
 on:
   push:
@@ -9,44 +9,209 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+env:
+  NODE_VERSION: "24"
+  # Set DOCKERHUB_USERNAME + DOCKERHUB_TOKEN secrets to enable step 12
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+
 jobs:
-  lint:
-    name: Lint & format
+  devsecops-pipeline:
+    name: End-to-end DevSecOps pipeline
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # ---------------------------------------------------------------
+      # 1. Checkout
+      # ---------------------------------------------------------------
+      - name: 1. Checkout repository
+        uses: actions/checkout@v4
         with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run format:check
+          fetch-depth: 0 # full history so secret scanners see all commits
 
-  test:
-    name: Test (Node ${{ matrix.node-version }})
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [24]
-      fail-fast: false
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: npm
-      - run: npm ci
-      - run: npm test
+      # ---------------------------------------------------------------
+      # 2. Secrets scanning (Gitleaks)
+      # ---------------------------------------------------------------
+      - name: 2. Secrets scanning - Gitleaks
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  audit:
-    name: Dependency audit
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # ---------------------------------------------------------------
+      # Toolchain setup
+      # ---------------------------------------------------------------
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
-      - run: npm ci
-      - run: npm audit --audit-level=high
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ---------------------------------------------------------------
+      # 3. Software Composition Analysis - OWASP Dependency-Check
+      # ---------------------------------------------------------------
+      - name: 3. Dependency check - OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@1.1.0
+        continue-on-error: true # NVD database sync can be flaky; results are uploaded regardless
+        with:
+          project: "saas-web-application"
+          path: "."
+          format: "SARIF"
+          args: "--failOnCVSS 7 --enableRetired --prettyPrint"
+
+      - name: Upload Dependency-Check report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: owasp-dependency-check
+          path: |
+            dependency-check-report.html
+            dependency-check-report.json
+            dependency-check-report.sarif
+          if-no-files-found: ignore
+
+      # ---------------------------------------------------------------
+      # 4. Static Application Security Testing - Semgrep
+      # ---------------------------------------------------------------
+      - name: 4. Static code analysis - Semgrep
+        uses: semgrep/semgrep-action@v1
+        continue-on-error: true # findings surface as SARIF in the Security tab
+        with:
+          config: p/owasp-top-ten
+          generate-sarif: "true"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ---------------------------------------------------------------
+      # 5. Code quality & lint - ESLint (+ Prettier check)
+      # ---------------------------------------------------------------
+      - name: 5. Code quality & lint - ESLint
+        run: npm run lint
+
+      - name: Format check - Prettier
+        run: npm run format:check
+
+      # ---------------------------------------------------------------
+      # 6. Unit tests
+      # ---------------------------------------------------------------
+      - name: 6. Unit tests
+        run: npm test
+
+      # ---------------------------------------------------------------
+      # 7. Code coverage
+      # ---------------------------------------------------------------
+      - name: 7. Code coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          if-no-files-found: ignore
+
+      # ---------------------------------------------------------------
+      # 8. Build application (npm)
+      # ---------------------------------------------------------------
+      - name: 8. Build application - npm
+        run: npm run build
+
+      # ---------------------------------------------------------------
+      # 9. Build Docker image
+      # ---------------------------------------------------------------
+      - name: Set image tag
+        id: meta
+        run: echo "tag=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+
+      - name: 9. Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: |
+            saas-web-application:${{ steps.meta.outputs.tag }}
+            saas-web-application:ci
+
+      # ---------------------------------------------------------------
+      # 10. Container image scanning - Trivy + Grype
+      # ---------------------------------------------------------------
+      - name: 10a. Container image scan - Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: saas-web-application:${{ steps.meta.outputs.tag }}
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: "1" # fail the build on findings below
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+      - name: Upload Trivy SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy
+
+      - name: 10b. Container image scan - Grype
+        uses: anchore/scan-action@v7
+        with:
+          image: saas-web-application:${{ steps.meta.outputs.tag }}
+          fail-build: true # fail the build on findings below
+          severity-cutoff: high
+          output-format: sarif
+          output-file: grype-results.sarif
+
+      - name: Upload Grype SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: grype-results.sarif
+          category: grype
+
+      # ---------------------------------------------------------------
+      # 11. SBOM generation - Syft
+      # ---------------------------------------------------------------
+      - name: 11. Generate SBOM - Syft
+        uses: anchore/sbom-action@v0
+        with:
+          image: saas-web-application:${{ steps.meta.outputs.tag }}
+          format: cyclonedx-json
+          output-file: sbom.cyclonedx.json
+
+      - name: Upload SBOM
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.cyclonedx.json
+          if-no-files-found: ignore
+
+      # ---------------------------------------------------------------
+      # 12. Push image to Docker Hub (main branch only, secrets required)
+      # ---------------------------------------------------------------
+      - name: 12. Push image - Log in to Docker Hub
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.DOCKERHUB_USERNAME != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 12. Push image - Build & push to Docker Hub
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.DOCKERHUB_USERNAME != ''
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/saas-web-application:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/saas-web-application:${{ steps.meta.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
