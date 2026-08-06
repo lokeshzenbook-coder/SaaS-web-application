@@ -1,7 +1,6 @@
 # SaaS Web Application
 
 [![CI](https://github.com/lokeshzenbook-coder/SaaS-web-application/actions/workflows/ci.yml/badge.svg)](https://github.com/lokeshzenbook-coder/SaaS-web-application/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/lokeshzenbook-coder/SaaS-web-application/actions/workflows/codeql.yml/badge.svg)](https://github.com/lokeshzenbook-coder/SaaS-web-application/actions/workflows/codeql.yml)
 
 A full-stack SaaS starter: authentication, plan-based subscriptions, usage quotas, a rate-limited product API, and a dashboard — all in one small, dependency-light codebase.
 
@@ -43,34 +42,28 @@ npm run format:check   # Prettier (verify)
 
 All workflows live in `.github/workflows/` and Dependabot updates dependencies automatically.
 
-| Workflow     | Trigger                       | What it does                                                                                                                    |
-| ------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `ci.yml`     | push to `main`, pull requests | End-to-end **DevSecOps pipeline** (12 stages, see below)                                                                        |
-| `codeql.yml` | push, PRs, weekly             | GitHub CodeQL JavaScript security scanning                                                                                      |
-| `deploy.yml` | push to `main` (app paths)    | Builds the image, scans with **Trivy**, publishes to **GHCR** (via OIDC), attaches **SLSA provenance**, optional SSH deploy job |
+| Workflow | Trigger                       | What it does                                                     |
+| -------- | ----------------------------- | ---------------------------------------------------------------- |
+| `ci.yml` | push to `main`, pull requests | End-to-end **DevSecOps pipeline** (8 stage-wise jobs, see below) |
 
 ### DevSecOps pipeline (`ci.yml`)
 
-| #   | Stage                | Tool                                                          |
-| --- | -------------------- | ------------------------------------------------------------- |
-| 1   | Checkout repo        | `actions/checkout` (full history)                             |
-| 2   | Secrets scanning     | **Gitleaks** (fails on any leaked secret)                     |
-| 3   | Dependency check     | **OWASP Dependency-Check** (SARIF + HTML report uploaded)     |
-| 4   | Static code analysis | **Semgrep** (`p/owasp-top-ten`, SARIF → Security tab)         |
-| 5   | Code quality & lint  | **ESLint** + Prettier check                                   |
-| 6   | Unit tests           | Node built-in test runner (`node --test`)                     |
-| 7   | Code coverage        | **c8** (~94% lines, HTML/lcov report uploaded)                |
-| 8   | Build application    | `npm pack --dry-run`                                          |
-| 9   | Build Docker image   | `docker/build-push-action` (loaded locally for scanning)      |
-| 10  | Container image scan | **Trivy** + **Grype** (fail on HIGH/CRITICAL, SARIF uploaded) |
-| 11  | SBOM generation      | **Syft** (CycloneDX, uploaded as artifact)                    |
-| 12  | Push image           | **Docker Hub** (`latest` + short-sha tags, main branch only)  |
+Each stage runs on its own `ubuntu-latest` runner; the built image is shared between stages as an artifact.
 
-Steps 3 and 4 run with `continue-on-error` (NVD sync and Semgrep comment posting can be flaky); all their reports are still uploaded. Steps 10a/10b **gate the pipeline** — any HIGH/CRITICAL container finding fails the build.
+| #   | Job            | Stage                       | Tool                                                                             |
+| --- | -------------- | --------------------------- | -------------------------------------------------------------------------------- |
+| 1   | `secrets-scan` | Secrets scanning            | **Gitleaks** (fails on any leaked secret)                                        |
+| 2   | `sast`         | Static code analysis        | **Semgrep** (`p/owasp-top-ten`, SARIF → Security tab)                            |
+| 3   | `sca`          | Dependency check            | **OWASP Dependency-Check** (SARIF report uploaded)                               |
+| 4   | `quality`      | Code quality & lint         | **ESLint** + Prettier check                                                      |
+| 5   | `test`         | Unit tests & coverage       | `node --test` + **c8** (~94% lines, report uploaded)                             |
+| 6   | `build`        | Build & package image       | `npm pack --dry-run` + `docker/build-push-action` (image saved as artifact)      |
+| 7   | `image-scan`   | Container image scan & SBOM | **Trivy** + **Grype** (monitor-only, SARIF uploaded) + **Syft** (CycloneDX SBOM) |
+| 8   | `push-image`   | Push image                  | **Docker Hub** (`latest` + short-sha tags, main branch only)                     |
 
-To enable the Docker Hub push (step 12), add `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` secrets to the repo. The image is published as `<username>/saas-web-application:latest` and `:<short-sha>` on every push to `main`.
+Scanning stages (2–3 and 7) run in **monitor-only** mode: findings are uploaded as SARIF to the Security tab and never block the build. Only secrets, lint/format, tests, and the build gate the pipeline.
 
-The separate CD workflow publishes to `ghcr.io/lokeshzenbook-coder/saas-web-application` with `:latest`, `:main`, and `:<sha>` tags. To enable the actual deployment step there, set the `DEPLOY_TARGET` secret and uncomment the example SSH deploy in `deploy.yml`.
+To enable the Docker Hub push (job 8), add `DOCKERHUB_USERNAME` and `DOCKERHUB_PASSWORD` secrets to the repo. The image is published as `<username>/saas-web-application:latest` and `:<short-sha>` on every push to `main`.
 
 ## Running with Docker
 
