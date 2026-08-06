@@ -1,0 +1,29 @@
+{
+  "name": "saas-web-application",
+  "version": "1.0.0",
+  "description": "A full-stack SaaS starter: authentication, plan-based subscriptions, usage quotas, billing, and a REST API.",
+  "type": "module",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test"
+  },
+  "keywords": [
+    "saas",
+    "authentication",
+    "subscription",
+    "billing",
+    "rest-api"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2"
+  }
+}
