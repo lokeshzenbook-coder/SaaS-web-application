@@ -131,7 +131,7 @@ jobs:
         run: echo "tag=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
 
       - name: 9. Build Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: false
@@ -206,7 +206,7 @@ jobs:
 
       - name: 12. Push image - Build & push to Docker Hub
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.DOCKERHUB_USERNAME != ''
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
