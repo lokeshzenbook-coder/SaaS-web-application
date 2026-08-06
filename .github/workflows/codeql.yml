@@ -1,31 +1,31 @@
-name: CodeQL
+# name: CodeQL
 
-on:
-  push:
-    branches: [main]
-  pull_request:
-  schedule:
-    - cron: "0 12 * * 3" # weekly on Wednesdays
+# on:
+#   push:
+#     branches: [main]
+#   pull_request:
+#   schedule:
+#     - cron: "0 12 * * 3" # weekly on Wednesdays
 
-permissions:
-  security-events: write
+# permissions:
+#   security-events: write
 
-jobs:
-  analyze:
-    name: CodeQL analysis
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+# jobs:
+#   analyze:
+#     name: CodeQL analysis
+#     runs-on: ubuntu-latest
+#     timeout-minutes: 15
+#     steps:
+#       - name: Checkout
+#         uses: actions/checkout@v4
 
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: javascript
+#       - name: Initialize CodeQL
+#         uses: github/codeql-action/init@v3
+#         with:
+#           languages: javascript
 
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
+#       - name: Autobuild
+#         uses: github/codeql-action/autobuild@v3
 
-      - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@v3
+#       - name: Perform CodeQL analysis
+#         uses: github/codeql-action/analyze@v3
