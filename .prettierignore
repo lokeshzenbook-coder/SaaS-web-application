@@ -4,3 +4,14 @@ coverage/
 package-lock.json
 reports/
 *.sarif
+
+# Helm chart: templates are Go-templated and cannot be parsed by Prettier;
+# values.yaml is consumed by yq (cd.yaml stage 1) and Argo CD
+gitops/charts/**
+
+# GitHub Actions expressions / long-line docs
+.github/workflows/cd.yaml
+DEPLOYMENT.md
+
+# Terraform (HCL, not a Prettier-supported language)
+terraform/
