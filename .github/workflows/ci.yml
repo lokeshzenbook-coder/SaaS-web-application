@@ -310,14 +310,6 @@ jobs:
 
   # --------------------------------------------------------------------
   # 9. Email notification (pipeline status)
-  #    Requires these repo secrets to be set (Settings > Secrets and variables > Actions > Secrets):
-  #      EMAIL_SMTP_SERVER   e.g. smtp.gmail.com
-  #      EMAIL_SMTP_PORT     e.g. 465
-  #      EMAIL_USERNAME      SMTP auth username / from-address
-  #      EMAIL_PASSWORD      SMTP auth password / app password
-  #    Requires this repo VARIABLE to be set (Settings > Secrets and variables > Actions > Variables):
-  #      EMAIL_TO            comma-separated recipient list, e.g. dev@example.com,ops@example.com
-  #    (recipients aren't sensitive, so a variable - not a secret - avoids masking/empty-value pitfalls)
   # --------------------------------------------------------------------
   notify:
     name: 9. Email notification
