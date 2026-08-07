@@ -307,3 +307,75 @@ jobs:
           docker tag saas-web-application:ci "$DOCKERHUB_USERNAME/saas-web-application:${GITHUB_SHA::8}"
           docker push "$DOCKERHUB_USERNAME/saas-web-application:latest"
           docker push "$DOCKERHUB_USERNAME/saas-web-application:${GITHUB_SHA::8}"
+
+  # --------------------------------------------------------------------
+  # 9. Email notification (pipeline status)
+  #    Requires these repo secrets to be set:
+  #      EMAIL_SMTP_SERVER   e.g. smtp.gmail.com
+  #      EMAIL_SMTP_PORT     e.g. 465
+  #      EMAIL_USERNAME      SMTP auth username / from-address
+  #      EMAIL_PASSWORD      SMTP auth password / app password
+  #      EMAIL_TO            comma-separated recipient list
+  # --------------------------------------------------------------------
+  notify:
+    name: 9. Email notification
+    runs-on: ubuntu-latest
+    needs:
+      - secrets-scan
+      - sast
+      - sca
+      - quality
+      - test
+      - build
+      - image-scan
+      - push-image
+    if: always() # run regardless of upstream success/failure/skip
+    timeout-minutes: 5
+    steps:
+      - name: Compute pipeline status
+        id: status
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "result=failure" >> "$GITHUB_OUTPUT"
+            echo "emoji=❌" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "result=cancelled" >> "$GITHUB_OUTPUT"
+            echo "emoji=⚠️" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=success" >> "$GITHUB_OUTPUT"
+            echo "emoji=✅" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Send email notification
+        uses: dawidd6/action-send-mail@v4
+        with:
+          server_address: ${{ secrets.EMAIL_SMTP_SERVER }}
+          server_port: ${{ secrets.EMAIL_SMTP_PORT }}
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "${{ steps.status.outputs.emoji }} [${{ github.repository }}] DevSecOps CI/CD - ${{ steps.status.outputs.result }} (${{ github.ref_name }})"
+          to: ${{ secrets.EMAIL_TO }}
+          from: "GitHub Actions <${{ secrets.EMAIL_USERNAME }}>"
+          convert_markdown: true
+          html_body: |
+            <h2>${{ steps.status.outputs.emoji }} DevSecOps CI/CD Pipeline — ${{ steps.status.outputs.result }}</h2>
+            <table cellpadding="6" cellspacing="0" border="1" style="border-collapse:collapse;font-family:sans-serif;font-size:14px;">
+              <tr><td><b>Repository</b></td><td>${{ github.repository }}</td></tr>
+              <tr><td><b>Branch / Ref</b></td><td>${{ github.ref_name }}</td></tr>
+              <tr><td><b>Triggered by</b></td><td>${{ github.actor }}</td></tr>
+              <tr><td><b>Event</b></td><td>${{ github.event_name }}</td></tr>
+              <tr><td><b>Commit</b></td><td>${{ github.sha }}</td></tr>
+              <tr><td><b>1. Secrets scan</b></td><td>${{ needs.secrets-scan.result }}</td></tr>
+              <tr><td><b>2. SAST (Semgrep)</b></td><td>${{ needs.sast.result }}</td></tr>
+              <tr><td><b>3. SCA (OWASP)</b></td><td>${{ needs.sca.result }}</td></tr>
+              <tr><td><b>4. Lint & format</b></td><td>${{ needs.quality.result }}</td></tr>
+              <tr><td><b>5. Unit tests</b></td><td>${{ needs.test.result }}</td></tr>
+              <tr><td><b>6. Build</b></td><td>${{ needs.build.result }}</td></tr>
+              <tr><td><b>7. Image scan & SBOM</b></td><td>${{ needs.image-scan.result }}</td></tr>
+              <tr><td><b>8. Push image</b></td><td>${{ needs.push-image.result }}</td></tr>
+            </table>
+            <p>
+              <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">
+                View full run on GitHub Actions
+              </a>
+            </p>
