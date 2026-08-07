@@ -1,0 +1,24 @@
+apiVersion: v2
+name: saas-web-application
+description: Helm chart for the saas-web-application (Express + SQLite SaaS) on Amazon EKS
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+kubeVersion: ">=1.23.0-0"
+
+# Dependencies are intentionally empty — all manifests are rendered from templates
+dependencies: []
+
+keywords:
+  - saas
+  - nodejs
+  - express
+  - eks
+  - gitops
+
+home: https://github.com/lokeshzenbook-coder/SaaS-web-application
+sources:
+  - https://github.com/lokeshzenbook-coder/SaaS-web-application
+maintainers:
+  - name: platform
+    email: platform@example.com

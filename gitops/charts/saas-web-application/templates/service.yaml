@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "saas-web-application.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "saas-web-application.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    {{- include "saas-web-application.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+{{- if eq .Values.strategy.type "blue-green" }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.blueGreen.activeService }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "saas-web-application.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    {{- include "saas-web-application.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.blueGreen.previewService }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "saas-web-application.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    {{- include "saas-web-application.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+{{- end }}

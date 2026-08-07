@@ -174,6 +174,12 @@ All settings are read from environment variables (see `.env.example`):
 | `RATE_WINDOW_MS` | `60000`        | Global rate-limit window   |
 | `DB_FILE`        | `data/saas.db` | SQLite database path       |
 
+## Deployment (CD pipeline, EKS, Kubernetes manifests)
+
+This repository includes a 14-stage GitOps CD pipeline, a Helm chart with the
+Kubernetes manifests, and Terraform code that provisions the Amazon EKS
+cluster. See **[DEPLOYMENT.md](DEPLOYMENT.md)** for the full guide.
+
 ## Production notes
 
 - Set a strong `JWT_SECRET` and `NODE_ENV=production` (this makes cookies `Secure`).

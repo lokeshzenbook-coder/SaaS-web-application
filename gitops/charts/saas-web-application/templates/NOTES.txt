@@ -1,0 +1,35 @@
+Saas Web Application deployed via GitOps / Argo CD
+===================================================
+
+  Namespace:    {{ .Release.Namespace }}
+  Release:      {{ .Release.Name }}
+  Image:        {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
+  Strategy:     {{ .Values.strategy.type | default "rolling" }}
+  Replicas:     {{ .Values.replicaCount }}
+
+1. Verify the workload is running:
+
+    kubectl get {{ if eq .Values.strategy.type "rolling" }}deployment{{ else }}rollout{{ end }} -n {{ .Release.Namespace }} {{ include "saas-web-application.fullname" . }}
+    kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "saas-web-application.name" . }}
+
+2. Rollout progress (canary / blue-green):
+
+    kubectl argo rollouts get rollout {{ include "saas-web-application.fullname" . }} -n {{ .Release.Namespace }}
+    kubectl argo rollouts status {{ include "saas-web-application.fullname" . }} -n {{ .Release.Namespace }}
+
+3. {{ if .Values.ingress.enabled }}Application URL:
+    {{- range .Values.ingress.hosts }}
+    https://{{ . }}/
+    {{- end }}
+{{ else }}Expose via port-forward:
+    kubectl port-forward svc/{{ include "saas-web-application.fullname" . }} -n {{ .Release.Namespace }} 8080:{{ .Values.service.port }}
+{{ end }}
+
+4. Health check:
+
+    curl -s http://127.0.0.1:8080/healthz
+
+{{- with .Values.secrets }}
+NOTE: .Values.secrets contains placeholder values. Use a SealedSecret or
+ExternalSecret for real secrets - never commit plaintext secrets.
+{{- end }}

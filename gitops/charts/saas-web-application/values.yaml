@@ -1,18 +1,35 @@
-# values.yaml for the saas-web-application Helm chart
-# Stage 1 of the CD pipeline (update-helm-image-tag) rewrites image.tag/image.repository
-# with yq:  yq -i '.image.tag = "<tag>"' gitops/charts/saas-web-application/values.yaml
+# =============================================================================
+# values.yaml - saas-web-application Helm chart
+# -----------------------------------------------------------------------------
+# Stage 1 of the CD pipeline (update-helm-image-tag) rewrites image.tag and
+# image.repository using yq. Keep those two keys at the same path.
+# =============================================================================
 
+# Image -----------------------------------------------------------------------
+# IMPORTANT: repository is overwritten by cd.yaml stage 1 from IMAGE_REPOSITORY
 image:
   repository: DOCKERHUB_USERNAME/saas-web-application
   tag: latest
   pullPolicy: IfNotPresent
 
-replicaCount: 3
+# Container name must match what `kubectl argo rollouts set image` uses (cd.yaml stage 7)
+containerName: saas-web-application
 
+replicaCount: 3
+revisionHistoryLimit: 5
+
+# Workload strategy (stage 7 of cd.yaml):
+#   rolling     -> Kubernetes Deployment with RollingUpdate
+#   canary      -> Argo Rollouts with weighted canary steps
+#   blue-green  -> Argo Rollouts with active + preview services
 strategy:
-  # canary | blue-green | rolling  (used by Argo Rollouts, stage 7)
   type: canary
 
+rollingUpdate:
+  maxUnavailable: 25%
+  maxSurge: 25%
+
+# Argo Rollouts - canary
 canary:
   steps:
     - setWeight: 10
@@ -21,28 +38,146 @@ canary:
     - pause: { duration: 60s }
     - setWeight: 80
     - pause: { duration: 60s }
+  # canaryService: saas-web-application-canary   # optional (traffic-splitting)
+  # stableService: saas-web-application          # optional (traffic-splitting)
+  # trafficRouting:
+  #   alb:
+  #     ingress: saas-web-application
+  #     servicePort: 80
 
+# Argo Rollouts - blue-green
 blueGreen:
   autoPromotionEnabled: false
+  autoPromotionSeconds: 60
+  scaleDownDelaySeconds: 600
   activeService: saas-web-application-active
   previewService: saas-web-application-preview
 
+# Service ---------------------------------------------------------------------
 service:
   type: ClusterIP
   port: 80
-  targetPort: 8080
+  targetPort: 3000
 
+# Ingress (AWS Load Balancer Controller - installed by terraform/tooling) ------
 ingress:
   enabled: true
   className: aws-load-balancer
+  path: /
+  pathType: Prefix
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}, {"HTTP": 80}]'
     alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "30"
+    alb.ingress.kubernetes.io/success-codes: "200"
   hosts:
-    - app.example.com
+    - saas.example.com
+  # tls:
+  #   - hosts:
+  #       - saas.example.com
+  #     secretName: saas-tls
 
+# Application configuration ----------------------------------------------------
+# Non-sensitive env vars -> ConfigMap
+env:
+  NODE_ENV: production
+  HOST: 0.0.0.0
+  PORT: "3000"
+  JWT_EXPIRES_IN: 7d
+  BCRYPT_ROUNDS: "10"
+  RATE_WINDOW_MS: "60000"
+  RATE_LIMIT_MAX: "100"
+  DB_FILE: /app/data/saas.db
+
+# Sensitive env vars -> Secret
+# NOTE: these are PLACEHOLDERS. In production seal them (kubeseal) or source
+# from AWS Secrets Manager via external-secrets. Never commit real values.
+secrets:
+  JWT_SECRET: "change-me-in-production"
+  sealed:
+    enabled: false   # set to true once you have created a SealedSecret
+
+# Probes ----------------------------------------------------------------------
+readinessProbe:
+  httpGet:
+    path: /healthz
+    port: 3000
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 3000
+  initialDelaySeconds: 10
+  periodSeconds: 15
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+startupProbe:
+  httpGet:
+    path: /healthz
+    port: 3000
+  initialDelaySeconds: 3
+  periodSeconds: 5
+  failureThreshold: 30
+
+lifecycle:
+  preStop:
+    exec:
+      command: ["/bin/sh", "-c", "sleep 5"]
+
+# Security context -------------------------------------------------------------
+securityContext:
+  runAsUser: 1000        # Dockerfile runs as node (uid 1000)
+  runAsGroup: 1000
+
+# Pod scheduling ---------------------------------------------------------------
+nodeSelector: {}
+
+tolerations: []
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - saas-web-application
+          topologyKey: topology.kubernetes.io/zone
+
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: saas-web-application
+
+podLabels: {}
+podAnnotations: {}
+
+# Volumes ----------------------------------------------------------------------
+# The app runs with readOnlyRootFilesystem: true, so writable paths must be
+# volumes. EmptyDir is ephemeral (DB resets on pod restart); swap for a
+# PersistentVolumeClaim backed by the EBS CSI driver when you need durability.
+volumes:
+  - name: data
+    emptyDir: {}
+
+volumeMounts:
+  - name: data
+    mountPath: /app/data
+
+# Resources ---------------------------------------------------------------------
 resources:
   requests:
     cpu: 250m
@@ -51,22 +186,42 @@ resources:
     cpu: 500m
     memory: 512Mi
 
+# Autoscaling ------------------------------------------------------------------
 autoscaling:
   enabled: true
   minReplicas: 3
   maxReplicas: 10
   targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
 
-readinessProbe:
-  httpGet:
-    path: /readyz
-    port: 8080
-  initialDelaySeconds: 10
-  periodSeconds: 10
+# PodDisruptionBudget ----------------------------------------------------------
+pdb:
+  enabled: true
+  minAvailable: 2
 
-livenessProbe:
-  httpGet:
-    path: /healthz
-    port: 8080
-  initialDelaySeconds: 15
-  periodSeconds: 15
+# NetworkPolicy ----------------------------------------------------------------
+# Disabled by default: with ALB target-type=ip traffic arrives directly at the
+# pod IP from within the VPC, so a strict ingress policy can break the app.
+# Enable once you pin the allowed source (VPC CIDR / ALB security group) below.
+networkPolicy:
+  enabled: false
+  ingress:
+    namespaceSelectors: []
+    podSelectors: []
+    ipBlocks: []
+  egress:
+    ipBlocks:
+      - cidr: 0.0.0.0/0   # tighten to NAT gateway CIDR / private subnet CIDRs
+
+# ServiceAccount ---------------------------------------------------------------
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# Naming overrides --------------------------------------------------------------
+nameOverride: ""
+fullnameOverride: ""

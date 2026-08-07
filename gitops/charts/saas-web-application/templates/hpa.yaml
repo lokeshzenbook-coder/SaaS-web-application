@@ -1,0 +1,37 @@
+{{- if .Values.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "saas-web-application.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "saas-web-application.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: {{ if eq .Values.strategy.type "rolling" }}apps/v1{{ else }}argoproj.io/v1alpha1{{ end }}
+    kind: {{ if eq .Values.strategy.type "rolling" }}Deployment{{ else }}Rollout{{ end }}
+    name: {{ include "saas-web-application.fullname" . }}
+  minReplicas: {{ .Values.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  metrics:
+    {{- if .Values.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.autoscaling.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+  {{- with .Values.autoscaling.behavior }}
+  behavior:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

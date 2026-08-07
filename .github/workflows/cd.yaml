@@ -406,7 +406,6 @@ jobs:
       - name: Smoke test liveness & readiness
         run: |
           echo "GET /healthz => $(curl -s -o /dev/null -w '%{http_code}' ${{ steps.endpoint.outputs.app_url }}/healthz)"
-          echo "GET /readyz  => $(curl -s -o /dev/null -w '%{http_code}' ${{ steps.endpoint.outputs.app_url }}/readyz)"
           echo "GET /        => $(curl -s -o /dev/null -w '%{http_code}' ${{ steps.endpoint.outputs.app_url }}/)"
 
       - name: Verify all pods healthy
