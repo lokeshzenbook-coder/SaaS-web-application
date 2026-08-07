@@ -20,11 +20,10 @@
 
 name: CD - Deploy to Amazon EKS
 
+# Manual-only trigger: a push to main runs only ci.yml.
+# Run the CD pipeline explicitly (e.g. after CI passes) via workflow_dispatch:
+#   gh workflow run "CD - Deploy to Amazon EKS" -f image_tag=abc12345
 on:
-  push:
-    branches: [main]
-    paths:
-      - '!terraform/**'   # infra changes do NOT trigger deploy
   workflow_dispatch:
     inputs:
       image_tag:

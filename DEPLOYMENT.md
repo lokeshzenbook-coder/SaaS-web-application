@@ -170,8 +170,9 @@ syncPolicy:
 
 ## 4. Continuous Deployment Pipeline (cd.yaml)
 
-File: `.github/workflows/cd.yaml`. Triggered on push to `main` (excluding
-`terraform/**`) or manually via `workflow_dispatch`.
+File: `.github/workflows/cd.yaml`. **Manual-only trigger** (`workflow_dispatch`) —
+a push to `main` runs only `ci.yml`; the CD pipeline is started explicitly
+after CI passes.
 
 ### 4.1 The 14 stages
 
@@ -238,6 +239,9 @@ aws secretsmanager create-secret --name "${EKS_CLUSTER_NAME}/argocd" \
 ```
 
 ### 4.3 Triggering
+
+The workflow is manual-only, so CI (`ci.yml`) runs automatically on push but
+the deploy must be started explicitly:
 
 ```bash
 # manual run with a specific tag
