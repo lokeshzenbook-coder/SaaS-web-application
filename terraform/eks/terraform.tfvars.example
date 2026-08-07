@@ -1,0 +1,35 @@
+aws_region   = "us-east-1"
+cluster_name = "saas-web-application-prod-eks"
+cluster_version = "1.31"
+
+vpc_cidr             = "10.0.0.0/16"
+availability_zones   = ["us-east-1a", "us-east-1b", "us-east-1c"]
+private_subnets      = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+public_subnets       = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]
+single_nat_gateway   = false
+
+cluster_endpoint_public_access  = false
+cluster_endpoint_private_access = true
+
+# Worker nodes
+node_instance_types = ["m5.large"]
+node_min_size       = 2
+node_max_size       = 8
+node_desired_size   = 3
+node_disk_size      = 50
+
+spot_node_instance_types = ["m5.large", "c5.large"]
+spot_node_min_size       = 1
+spot_node_max_size       = 6
+spot_node_desired_size   = 2
+
+# GitHub Actions integration
+github_org           = "lokeshzenbook-coder"
+github_repo          = "SaaS-web-application"
+application_namespace = "saas-web-application"
+
+tags = {
+  Environment = "production"
+  ManagedBy   = "Terraform"
+  Team        = "platform"
+}

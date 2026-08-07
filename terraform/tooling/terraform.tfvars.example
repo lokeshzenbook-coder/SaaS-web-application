@@ -1,0 +1,22 @@
+aws_region    = "us-east-1"
+state_bucket  = "my-terraform-state-bucket"
+eks_state_key = "env:/prod/eks/terraform.tfstate"
+
+application_namespace = "saas-web-application"
+
+gitops_repo_url      = "https://github.com/lokeshzenbook-coder/SaaS-web-application.git"
+gitops_repo_username = "cicd-bot"
+gitops_repo_token    = "ghp_xxxxxxxxxxxxxxxxxxxx"  # set via environment var TF_VAR_gitops_repo_token
+
+argocd_domain          = "argocd.saas-web-application.example.com"
+argocd_ingress_enabled = true
+
+falco_slack_enabled   = true
+falco_slack_channel   = "#security-alerts"
+falco_slack_webhook   = "https://hooks.slack.com/services/xxx"
+
+tags = {
+  Environment = "production"
+  ManagedBy   = "Terraform"
+  Team        = "platform"
+}

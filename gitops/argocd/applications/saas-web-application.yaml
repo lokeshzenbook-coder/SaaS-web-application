@@ -1,0 +1,30 @@
+# Argo CD Application - watched by the CD pipeline (stages 3 & 4)
+# Lives in the GitOps path of this repo (gitops/argocd/applications/)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: saas-web-application
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/lokeshzenbook-coder/SaaS-web-application.git
+    path: gitops/charts/saas-web-application
+    targetRevision: main
+    helm:
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: saas-web-application
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+  revisionHistoryLimit: 5
+  info:
+    - name: Pipeline
+      value: https://github.com/lokeshzenbook-coder/SaaS-web-application/actions

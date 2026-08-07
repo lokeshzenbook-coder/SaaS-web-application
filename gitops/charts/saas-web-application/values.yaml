@@ -1,0 +1,72 @@
+# values.yaml for the saas-web-application Helm chart
+# Stage 1 of the CD pipeline (update-helm-image-tag) rewrites image.tag/image.repository
+# with yq:  yq -i '.image.tag = "<tag>"' gitops/charts/saas-web-application/values.yaml
+
+image:
+  repository: DOCKERHUB_USERNAME/saas-web-application
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 3
+
+strategy:
+  # canary | blue-green | rolling  (used by Argo Rollouts, stage 7)
+  type: canary
+
+canary:
+  steps:
+    - setWeight: 10
+    - pause: { duration: 60s }
+    - setWeight: 40
+    - pause: { duration: 60s }
+    - setWeight: 80
+    - pause: { duration: 60s }
+
+blueGreen:
+  autoPromotionEnabled: false
+  activeService: saas-web-application-active
+  previewService: saas-web-application-preview
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: aws-load-balancer
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+  hosts:
+    - app.example.com
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 10
+
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 8080
+  initialDelaySeconds: 15
+  periodSeconds: 15

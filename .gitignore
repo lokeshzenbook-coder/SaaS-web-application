@@ -9,3 +9,12 @@ data/
 npm-debug.log*
 coverage/
 .DS_Store
+
+# Terraform
+terraform/**/.terraform/
+terraform/**/*.tfstate
+terraform/**/*.tfstate.*
+terraform/**/crash.log
+terraform/**/tfplan
+*.tfvars
+!*.tfvars.example
