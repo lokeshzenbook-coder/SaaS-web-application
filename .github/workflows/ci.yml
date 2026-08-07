@@ -310,12 +310,14 @@ jobs:
 
   # --------------------------------------------------------------------
   # 9. Email notification (pipeline status)
-  #    Requires these repo secrets to be set:
+  #    Requires these repo secrets to be set (Settings > Secrets and variables > Actions > Secrets):
   #      EMAIL_SMTP_SERVER   e.g. smtp.gmail.com
   #      EMAIL_SMTP_PORT     e.g. 465
   #      EMAIL_USERNAME      SMTP auth username / from-address
   #      EMAIL_PASSWORD      SMTP auth password / app password
-  #      EMAIL_TO            comma-separated recipient list
+  #    Requires this repo VARIABLE to be set (Settings > Secrets and variables > Actions > Variables):
+  #      EMAIL_TO            comma-separated recipient list, e.g. dev@example.com,ops@example.com
+  #    (recipients aren't sensitive, so a variable - not a secret - avoids masking/empty-value pitfalls)
   # --------------------------------------------------------------------
   notify:
     name: 9. Email notification
@@ -346,15 +348,22 @@ jobs:
             echo "emoji=✅" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Validate recipient is configured
+        run: |
+          if [[ -z "${{ vars.EMAIL_TO }}" ]]; then
+            echo "::error::EMAIL_TO repo variable is not set. Go to Settings > Secrets and variables > Actions > Variables and add EMAIL_TO with a comma-separated recipient list."
+            exit 1
+          fi
+
       - name: Send email notification
-        uses: dawidd6/action-send-mail@v4
+        uses: dawidd6/action-send-mail@v18
         with:
           server_address: ${{ secrets.EMAIL_SMTP_SERVER }}
           server_port: ${{ secrets.EMAIL_SMTP_PORT }}
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
           subject: "${{ steps.status.outputs.emoji }} [${{ github.repository }}] DevSecOps CI/CD - ${{ steps.status.outputs.result }} (${{ github.ref_name }})"
-          to: ${{ secrets.EMAIL_TO }}
+          to: ${{ vars.EMAIL_TO }}
           from: "GitHub Actions <${{ secrets.EMAIL_USERNAME }}>"
           convert_markdown: true
           html_body: |
