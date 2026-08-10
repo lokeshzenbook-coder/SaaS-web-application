@@ -4,10 +4,10 @@ on:
   push:
     branches: [main]
   pull_request:
-  
+
   schedule:
-  # Run every day at 9:00 PM IST (15:15 UTC)
-  - cron: "30 15 * * *"
+    # Run every day at 9:05 PM IST (15:15 UTC)
+    - cron: "35 15 * * *"
 
 concurrency:
   group: ci-${{ github.ref }}
