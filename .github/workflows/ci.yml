@@ -307,9 +307,9 @@ jobs:
           docker tag saas-web-application:ci "$DOCKERHUB_USERNAME/saas-web-application:${GITHUB_SHA::8}"
           docker push "$DOCKERHUB_USERNAME/saas-web-application:latest"
           docker push "$DOCKERHUB_USERNAME/saas-web-application:${GITHUB_SHA::8}"
-# --------------------------------------------------------------------
-# 9. Email notification (pipeline status)
-# --------------------------------------------------------------------
+  # --------------------------------------------------------------------
+  # 9. Email notification (pipeline status)
+  # --------------------------------------------------------------------
   notify:
     name: 9. Email notification
     runs-on: ubuntu-latest
@@ -355,8 +355,8 @@ jobs:
       - name: Send email notification
         uses: dawidd6/action-send-mail@v18
         with:
-          # server_address: ${{ secrets.EMAIL_SMTP_SERVER }}
-          # server_port: ${{ secrets.EMAIL_SMTP_PORT }}
+          server_address: ${{ secrets.EMAIL_SMTP_SERVER }}
+          server_port: ${{ secrets.EMAIL_SMTP_PORT }}
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
           subject: "${{ steps.status.outputs.emoji }} [${{ github.repository }}] DevSecOps CI/CD - ${{ steps.status.outputs.result }} (${{ github.ref_name }})"
