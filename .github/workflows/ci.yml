@@ -384,3 +384,112 @@ jobs:
                 View full run details
               </a>
             </p>
+
+  # --------------------------------------------------------------------
+  # 10. Slack notification (pipeline status)
+  # --------------------------------------------------------------------
+  slack-notify:
+    name: 10. Slack notification
+    runs-on: ubuntu-latest
+    needs:
+      - secrets-scan
+      - sast
+      - sca
+      - quality
+      - test
+      - build
+      - image-scan
+      - push-image
+    if: always() # run regardless of upstream success/failure/skip
+    timeout-minutes: 5
+    steps:
+      - name: Compute pipeline status
+        id: status
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "result=failure" >> "$GITHUB_OUTPUT"
+            echo "emoji=:x:" >> "$GITHUB_OUTPUT"
+            echo "color=#e01e5a" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "result=cancelled" >> "$GITHUB_OUTPUT"
+            echo "emoji=:warning:" >> "$GITHUB_OUTPUT"
+            echo "color=#ecb22e" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=success" >> "$GITHUB_OUTPUT"
+            echo "emoji=:white_check_mark:" >> "$GITHUB_OUTPUT"
+            echo "color=#2eb67d" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate Slack webhook is configured
+        run: |
+          if [[ -z "${{ secrets.SLACK_WEBHOOK_URL }}" ]]; then
+            echo "::error::SLACK_WEBHOOK_URL secret is not set. Go to Settings > Secrets and variables > Actions > Secrets and add SLACK_WEBHOOK_URL with your Slack Incoming Webhook URL."
+            exit 1
+          fi
+
+      - name: Send Slack notification
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          STATUS_RESULT: ${{ steps.status.outputs.result }}
+          STATUS_EMOJI: ${{ steps.status.outputs.emoji }}
+          STATUS_COLOR: ${{ steps.status.outputs.color }}
+        run: |
+          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          payload=$(cat <<EOF
+          {
+            "attachments": [
+              {
+                "color": "${STATUS_COLOR}",
+                "blocks": [
+                  {
+                    "type": "header",
+                    "text": {
+                      "type": "plain_text",
+                      "text": "${STATUS_EMOJI} DevSecOps CI/CD - ${STATUS_RESULT}",
+                      "emoji": true
+                    }
+                  },
+                  {
+                    "type": "section",
+                    "fields": [
+                      { "type": "mrkdwn", "text": "*Repository:*\n${{ github.repository }}" },
+                      { "type": "mrkdwn", "text": "*Branch:*\n${{ github.ref_name }}" },
+                      { "type": "mrkdwn", "text": "*Triggered by:*\n${{ github.actor }}" },
+                      { "type": "mrkdwn", "text": "*Event:*\n${{ github.event_name }}" },
+                      { "type": "mrkdwn", "text": "*Commit:*\n\`${{ github.sha }}\`" }
+                    ]
+                  },
+                  {
+                    "type": "section",
+                    "fields": [
+                      { "type": "mrkdwn", "text": "*1. Secrets scan:*\n${{ needs['secrets-scan'].result }}" },
+                      { "type": "mrkdwn", "text": "*2. SAST (Semgrep):*\n${{ needs.sast.result }}" },
+                      { "type": "mrkdwn", "text": "*3. SCA (OWASP):*\n${{ needs.sca.result }}" },
+                      { "type": "mrkdwn", "text": "*4. Lint & format:*\n${{ needs.quality.result }}" },
+                      { "type": "mrkdwn", "text": "*5. Unit tests:*\n${{ needs.test.result }}" },
+                      { "type": "mrkdwn", "text": "*6. Build:*\n${{ needs.build.result }}" },
+                      { "type": "mrkdwn", "text": "*7. Image scan & SBOM:*\n${{ needs['image-scan'].result }}" },
+                      { "type": "mrkdwn", "text": "*8. Push image:*\n${{ needs['push-image'].result }}" }
+                    ]
+                  },
+                  {
+                    "type": "actions",
+                    "elements": [
+                      {
+                        "type": "button",
+                        "text": { "type": "plain_text", "text": "View full run" },
+                        "url": "${run_url}"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+          )
+
+          curl -sf -X POST -H 'Content-type: application/json' \
+            --data "${payload}" \
+            "${SLACK_WEBHOOK_URL}"
