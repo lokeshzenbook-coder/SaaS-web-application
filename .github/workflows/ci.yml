@@ -355,8 +355,8 @@ jobs:
       - name: Send email notification
         uses: dawidd6/action-send-mail@v18
         with:
-          server_address: ${{ secrets.EMAIL_SMTP_SERVER }}
-          server_port: ${{ secrets.EMAIL_SMTP_PORT }}
+          # server_address: ${{ secrets.EMAIL_SMTP_SERVER }}
+          # server_port: ${{ secrets.EMAIL_SMTP_PORT }}
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
           subject: "${{ steps.status.outputs.emoji }} [${{ github.repository }}] DevSecOps CI/CD - ${{ steps.status.outputs.result }} (${{ github.ref_name }})"
@@ -370,14 +370,14 @@ jobs:
               <tr><td><b>Triggered by</b></td><td>${{ github.actor }}</td></tr>
               <tr><td><b>Event</b></td><td>${{ github.event_name }}</td></tr>
               <tr><td><b>Commit</b></td><td>${{ github.sha }}</td></tr>
-              <tr><td><b>1. Secrets scan</b></td><td>${{ needs.secrets-scan.result }}</td></tr>
+              <tr><td><b>1. Secrets scan</b></td><td>${{ needs['secrets-scan'].result }}</td></tr>
               <tr><td><b>2. SAST (Semgrep)</b></td><td>${{ needs.sast.result }}</td></tr>
               <tr><td><b>3. SCA (OWASP)</b></td><td>${{ needs.sca.result }}</td></tr>
               <tr><td><b>4. Lint & format</b></td><td>${{ needs.quality.result }}</td></tr>
               <tr><td><b>5. Unit tests</b></td><td>${{ needs.test.result }}</td></tr>
               <tr><td><b>6. Build</b></td><td>${{ needs.build.result }}</td></tr>
-              <tr><td><b>7. Image scan & SBOM</b></td><td>${{ needs.image-scan.result }}</td></tr>
-              <tr><td><b>8. Push image</b></td><td>${{ needs.push-image.result }}</td></tr>
+              <tr><td><b>7. Image scan & SBOM</b></td><td>${{ needs['image-scan'].result }}</td></tr>
+              <tr><td><b>8. Push image</b></td><td>${{ needs['push-image'].result }}</td></tr>
             </table>
             <p>
               <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">
