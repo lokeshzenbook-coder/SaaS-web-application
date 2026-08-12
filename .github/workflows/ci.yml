@@ -39,10 +39,41 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # --------------------------------------------------------------------
-  # 2. Static Application Security Testing (SAST)
+  # 2. Trivy filesystem scan (source code & dependencies)
+  # --------------------------------------------------------------------
+  trivy-fs-scan:
+    name: 2. Trivy filesystem scan
+    runs-on: ubuntu-latest
+    needs: secrets-scan
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Trivy filesystem scan
+        id: trivy-fs-scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: "."
+          format: sarif
+          output: trivy-fs-results.sarif
+          exit-code: "0" # monitor-only; findings surface as SARIF in the Security tab
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+      - name: Upload Trivy filesystem SARIF
+        if: always() && steps.trivy-fs-scan.conclusion != 'skipped'
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-fs-results.sarif
+          category: trivy-fs
+
+  # --------------------------------------------------------------------
+  # 3. Static Application Security Testing (SAST)
   # --------------------------------------------------------------------
   sast:
-    name: 2. Static analysis - Semgrep
+    name: 3. Static analysis - Semgrep
     runs-on: ubuntu-latest
     needs: secrets-scan
     timeout-minutes: 15
@@ -66,10 +97,10 @@ jobs:
           category: semgrep
 
   # --------------------------------------------------------------------
-  # 3. Software Composition Analysis (SCA)
+  # 4. Software Composition Analysis (SCA)
   # --------------------------------------------------------------------
   sca:
-    name: 3. Software composition analysis - OWASP
+    name: 4. Software composition analysis - OWASP
     runs-on: ubuntu-latest
     needs: secrets-scan
     timeout-minutes: 15
@@ -95,10 +126,10 @@ jobs:
           if-no-files-found: ignore
 
   # --------------------------------------------------------------------
-  # 4. Code quality (lint + format)
+  # 5. Code quality (lint + format)
   # --------------------------------------------------------------------
   quality:
-    name: 4. Lint & format
+    name: 5. Lint & format
     runs-on: ubuntu-latest
     needs: secrets-scan
     timeout-minutes: 10
@@ -122,10 +153,10 @@ jobs:
         run: npm run format:check
 
   # --------------------------------------------------------------------
-  # 5. Unit tests + coverage
+  # 6. Unit tests + coverage
   # --------------------------------------------------------------------
   test:
-    name: 5. Unit tests & coverage
+    name: 6. Unit tests & coverage
     runs-on: ubuntu-latest
     needs: quality
     timeout-minutes: 15
@@ -157,10 +188,10 @@ jobs:
           if-no-files-found: ignore
 
   # --------------------------------------------------------------------
-  # 6. Build application + Docker image (shared as an artifact)
+  # 7. Build application + Docker image (shared as an artifact)
   # --------------------------------------------------------------------
   build:
-    name: 6. Build application & image
+    name: 7. Build application & image
     runs-on: ubuntu-latest
     needs: test
     timeout-minutes: 20
@@ -205,10 +236,10 @@ jobs:
           retention-days: 1
 
   # --------------------------------------------------------------------
-  # 7. Container image scanning (Trivy + Grype) & SBOM (Syft)
+  # 8. Container image scanning (Trivy + Grype) & SBOM (Syft)
   # --------------------------------------------------------------------
   image-scan:
-    name: 7. Container image scan & SBOM
+    name: 8. Container image scan & SBOM
     runs-on: ubuntu-latest
     needs: build
     timeout-minutes: 20
@@ -273,10 +304,10 @@ jobs:
           if-no-files-found: ignore
 
   # --------------------------------------------------------------------
-  # 8. Push image to Docker Hub (main branch only, secrets required)
+  # 9. Push image to Docker Hub (main branch only, secrets required)
   # --------------------------------------------------------------------
   push-image:
-    name: 8. Push image to Docker Hub
+    name: 9. Push image to Docker Hub
     runs-on: ubuntu-latest
     needs: image-scan
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -307,14 +338,16 @@ jobs:
           docker tag saas-web-application:ci "$DOCKERHUB_USERNAME/saas-web-application:${GITHUB_SHA::8}"
           docker push "$DOCKERHUB_USERNAME/saas-web-application:latest"
           docker push "$DOCKERHUB_USERNAME/saas-web-application:${GITHUB_SHA::8}"
+
   # --------------------------------------------------------------------
-  # 9. Email notification (pipeline status)
+  # 10. Email notification (pipeline status)
   # --------------------------------------------------------------------
   notify:
-    name: 9. Email notification
+    name: 10. Email notification
     runs-on: ubuntu-latest
     needs:
       - secrets-scan
+      - trivy-fs-scan
       - sast
       - sca
       - quality
@@ -371,13 +404,14 @@ jobs:
               <tr><td><b>Event</b></td><td>${{ github.event_name }}</td></tr>
               <tr><td><b>Commit</b></td><td>${{ github.sha }}</td></tr>
               <tr><td><b>1. Secrets scan</b></td><td>${{ needs['secrets-scan'].result }}</td></tr>
-              <tr><td><b>2. SAST (Semgrep)</b></td><td>${{ needs.sast.result }}</td></tr>
-              <tr><td><b>3. SCA (OWASP)</b></td><td>${{ needs.sca.result }}</td></tr>
-              <tr><td><b>4. Lint & format</b></td><td>${{ needs.quality.result }}</td></tr>
-              <tr><td><b>5. Unit tests</b></td><td>${{ needs.test.result }}</td></tr>
-              <tr><td><b>6. Build</b></td><td>${{ needs.build.result }}</td></tr>
-              <tr><td><b>7. Image scan & SBOM</b></td><td>${{ needs['image-scan'].result }}</td></tr>
-              <tr><td><b>8. Push image</b></td><td>${{ needs['push-image'].result }}</td></tr>
+              <tr><td><b>2. Trivy filesystem scan</b></td><td>${{ needs['trivy-fs-scan'].result }}</td></tr>
+              <tr><td><b>3. SAST (Semgrep)</b></td><td>${{ needs.sast.result }}</td></tr>
+              <tr><td><b>4. SCA (OWASP)</b></td><td>${{ needs.sca.result }}</td></tr>
+              <tr><td><b>5. Lint & format</b></td><td>${{ needs.quality.result }}</td></tr>
+              <tr><td><b>6. Unit tests</b></td><td>${{ needs.test.result }}</td></tr>
+              <tr><td><b>7. Build</b></td><td>${{ needs.build.result }}</td></tr>
+              <tr><td><b>8. Image scan & SBOM (Trivy image scan)</b></td><td>${{ needs['image-scan'].result }}</td></tr>
+              <tr><td><b>9. Push image</b></td><td>${{ needs['push-image'].result }}</td></tr>
             </table>
             <p>
               <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">
@@ -386,13 +420,14 @@ jobs:
             </p>
 
   # --------------------------------------------------------------------
-  # 10. Slack notification (pipeline status)
+  # 11. Slack notification (pipeline status)
   # --------------------------------------------------------------------
   slack-notify:
-    name: 10. Slack notification
+    name: 11. Slack notification
     runs-on: ubuntu-latest
     needs:
       - secrets-scan
+      - trivy-fs-scan
       - sast
       - sca
       - quality
@@ -464,13 +499,14 @@ jobs:
                     "type": "section",
                     "fields": [
                       { "type": "mrkdwn", "text": "*1. Secrets scan:*\n${{ needs['secrets-scan'].result }}" },
-                      { "type": "mrkdwn", "text": "*2. SAST (Semgrep):*\n${{ needs.sast.result }}" },
-                      { "type": "mrkdwn", "text": "*3. SCA (OWASP):*\n${{ needs.sca.result }}" },
-                      { "type": "mrkdwn", "text": "*4. Lint & format:*\n${{ needs.quality.result }}" },
-                      { "type": "mrkdwn", "text": "*5. Unit tests:*\n${{ needs.test.result }}" },
-                      { "type": "mrkdwn", "text": "*6. Build:*\n${{ needs.build.result }}" },
-                      { "type": "mrkdwn", "text": "*7. Image scan & SBOM:*\n${{ needs['image-scan'].result }}" },
-                      { "type": "mrkdwn", "text": "*8. Push image:*\n${{ needs['push-image'].result }}" }
+                      { "type": "mrkdwn", "text": "*2. Trivy FS scan:*\n${{ needs['trivy-fs-scan'].result }}" },
+                      { "type": "mrkdwn", "text": "*3. SAST (Semgrep):*\n${{ needs.sast.result }}" },
+                      { "type": "mrkdwn", "text": "*4. SCA (OWASP):*\n${{ needs.sca.result }}" },
+                      { "type": "mrkdwn", "text": "*5. Lint & format:*\n${{ needs.quality.result }}" },
+                      { "type": "mrkdwn", "text": "*6. Unit tests:*\n${{ needs.test.result }}" },
+                      { "type": "mrkdwn", "text": "*7. Build:*\n${{ needs.build.result }}" },
+                      { "type": "mrkdwn", "text": "*8. Image scan & SBOM:*\n${{ needs['image-scan'].result }}" },
+                      { "type": "mrkdwn", "text": "*9. Push image:*\n${{ needs['push-image'].result }}" }
                     ]
                   },
                   {
