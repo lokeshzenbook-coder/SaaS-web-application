@@ -429,7 +429,7 @@ jobs:
 
       - name: Run OWASP ZAP Full Scan
         continue-on-error: true   # scan runs; report is attached
-        uses: zaproxy/action-full-scan@v0.12.0
+        uses: zaproxy/action-full-scan@v0.13.0
         with:
           target: ${{ env.APP_URL }}
           cmd_options: "-a -t ${{ env.APP_URL }}"
