@@ -91,7 +91,7 @@ jobs:
           git diff
 
       - name: Upload updated values.yaml as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: helm-values
           path: gitops/charts/${{ env.HELM_APP_NAME }}/${{ env.HELM_VALUES_PATH }}
@@ -437,7 +437,7 @@ jobs:
 
       - name: Upload ZAP report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: zap-report
           path: report_html.html
@@ -526,7 +526,7 @@ jobs:
 
       - name: Upload Newman report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: newman-report
           path: newman-report.html
