@@ -34,7 +34,7 @@ jobs:
           fetch-depth: 0 # full history so secret scanners see all commits
 
       - name: Secrets scanning - Gitleaks
-        uses: gitleaks/gitleaks-action@v3
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -52,7 +52,7 @@ jobs:
 
       - name: Trivy filesystem scan
         id: trivy-fs-scan
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: "."
@@ -110,7 +110,7 @@ jobs:
 
       - name: Dependency check - OWASP Dependency-Check
         continue-on-error: true # NVD database sync can be flaky; results are uploaded regardless
-        uses: dependency-check/Dependency-Check_Action@1.1.0
+        uses: dependency-check/Dependency-Check_Action@75ba02d6183445fe0761d26e836bde58b1560600 # 1.1.0
         with:
           project: "saas-web-application"
           path: "."
@@ -273,7 +273,7 @@ jobs:
 
       - name: Container image scan - Grype
         id: grype-scan
-        uses: anchore/scan-action@v7
+        uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2 # v7.4.0
         with:
           image: saas-web-application:ci
           fail-build: false # monitor-only; findings surface as SARIF in the Security tab
@@ -289,7 +289,7 @@ jobs:
           category: grype
 
       - name: Generate SBOM - Syft
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
         with:
           image: saas-web-application:ci
           format: cyclonedx-json
@@ -386,7 +386,7 @@ jobs:
           fi
 
       - name: Send email notification
-        uses: dawidd6/action-send-mail@v18
+        uses: dawidd6/action-send-mail@94de994a9f6fffee200243214e17002e2920bb59 # v18
         with:
           server_address: ${{ secrets.EMAIL_SMTP_SERVER }}
           server_port: ${{ secrets.EMAIL_SMTP_PORT }}
