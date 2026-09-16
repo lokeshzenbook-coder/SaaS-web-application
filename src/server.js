@@ -9,7 +9,7 @@ const server = app.listen(config.port, config.host, () => {
 
 function shutdown() {
   server.close(() => process.exit(0));
-  setTimeout(() => process.exit(1), 5000).unref();
+  setTimeout(() => process.exit(1), 6000).unref();
 }
 
 process.on("SIGINT", shutdown);
